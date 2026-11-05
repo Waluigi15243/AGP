@@ -32,7 +32,7 @@ try:
     overview = get_project_overview(engine)
     risks = analyze_risks(engine)
 except Exception as exc:
-    st.error("No se pudo cargar información desde PostgreSQL. Verifica la configuración y que el esquema coincida con README.md.")
+    st.error("No se pudo cargar información desde Microsoft SQL Server. Verifica la configuración y que el esquema coincida con README.md.")
     if st.session_state.get("debug", False):
         st.exception(exc)
     st.stop()
@@ -98,7 +98,7 @@ with tab3:
                     answer = agent.ask(st.session_state.messages[-12:])
                     st.markdown(answer)
                 except Exception:
-                    answer = "No pude completar el análisis. Comprueba la configuración de OPENAI_API_KEY, el acceso a PostgreSQL y los registros de la aplicación."
+                    answer = "No pude completar el análisis. Comprueba la configuración de OPENAI_API_KEY, el acceso a Microsoft SQL Server y los registros de la aplicación."
                     st.error(answer)
                     if st.session_state.get("debug", False):
                         st.exception(Exception("Consulta al agente fallida; revisa la salida de la terminal para el detalle."))
