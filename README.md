@@ -1,11 +1,11 @@
 # Agente IA para gestión de proyectos
 
-Aplicación de referencia con Python, Streamlit, PostgreSQL y API de OpenAI. Está diseñada para consultar estado y riesgos usando herramientas predefinidas de solo lectura; el modelo **no genera ni ejecuta SQL libre**.
+Aplicación de referencia con Python, Streamlit, Microsoft SQL Server y API de OpenAI. Está diseñada para consultar estado y riesgos usando herramientas predefinidas de solo lectura; el modelo **no genera ni ejecuta SQL libre**.
 
 ## Requisitos
 
 - Python 3.11 o superior.
-- PostgreSQL accesible desde el equipo donde se ejecuta Streamlit.
+- Microsoft SQL Server accesible desde el equipo donde se ejecuta Streamlit.
 - Una API key de OpenAI con acceso al modelo configurado.
 - Esquema de base de datos existente compatible con el esquema de referencia siguiente, o adaptación de `src/risk_engine.py`.
 
@@ -87,7 +87,7 @@ Streamlit mostrará una URL local, normalmente `http://localhost:8501`.
 
 ## Seguridad antes de usar datos reales
 
-1. **Usuario PostgreSQL de solo lectura.** No conectes la aplicación con el usuario propietario ni con un superusuario. Como ejemplo, un administrador de base de datos puede ejecutar (ajusta base, esquema y rol):
+1. **Usuario Microsoft SQL Server de solo lectura.** No conectes la aplicación con el usuario propietario ni con un superusuario. Como ejemplo, un administrador de base de datos puede ejecutar (ajusta base, esquema y rol):
 
    ```sql
    CREATE ROLE agente_lectura LOGIN PASSWORD 'usa-un-secreto-largo';
@@ -99,7 +99,7 @@ Streamlit mostrará una URL local, normalmente `http://localhost:8501`.
    Si las tablas están en otro esquema, ajusta los permisos. La política de permisos debe revisarse para impedir accesos a tablas no autorizadas.
 
 2. Mantén `.env` fuera del control de versiones y nunca subas la clave de OpenAI a Git.
-3. Usa TLS para conexiones remotas a PostgreSQL y restringe el acceso de red.
+3. Usa TLS para conexiones remotas a Microsoft SQL Server y restringe el acceso de red.
 4. Limita el acceso a Streamlit detrás de autenticación/proxy cuando se despliegue para un equipo. Esta demo no incorpora autenticación de usuarios ni autorización por proyecto.
 5. Revisa si los datos de proyectos pueden enviarse a un proveedor externo. Minimiza los datos compartidos con el LLM y cumple las políticas de tu organización.
 6. Las consultas son de solo lectura y están definidas en código. No añadas una herramienta que ejecute directamente texto SQL generado por el modelo.
