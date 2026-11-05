@@ -19,25 +19,27 @@ SELECT
     p.fecha_inicio,
     p.fecha_fin_planificada,
     COUNT(t.id) AS total_tareas,
-    COALESCE(ROUND(AVG(t.porcentaje_avance)::numeric, 1), 0) AS avance_promedio,
+    COALESCE(ROUND(CAST(AVG(t.porcentaje_avance) as numeric), 1), 0) AS avance_promedio,
     SUM(CASE WHEN t.id IS NOT NULL
               AND t.estado NOT IN ('completada', 'cancelada')
-              AND t.fecha_limite < CURRENT_DATE THEN 1 ELSE 0 END) AS tareas_atrasadas,
+              AND t.fecha_limite < GETDATE() THEN 1 ELSE 0 END) AS tareas_atrasadas
+,
     CASE
       WHEN SUM(CASE WHEN t.id IS NOT NULL
                      AND t.estado NOT IN ('completada', 'cancelada')
-                     AND t.fecha_limite < CURRENT_DATE THEN 1 ELSE 0 END) > 0
-        OR (p.fecha_fin_planificada < CURRENT_DATE AND LOWER(COALESCE(p.estado, '')) NOT IN ('completado', 'completada', 'cancelado', 'cancelada'))
-      THEN TRUE ELSE FALSE
+                     AND t.fecha_limite < GETDATE() THEN 1 ELSE 0 END) > 0
+        OR (p.fecha_fin_planificada < GETDATE() AND LOWER(COALESCE(p.estado, '')) NOT IN ('completado', 'completada', 'cancelado', 'cancelada'))
+      THEN 1 ELSE 0
     END AS riesgo_alto
 FROM proyectos p
 LEFT JOIN tareas t ON t.proyecto_id = p.id
 GROUP BY p.id, p.nombre, p.estado, p.fecha_inicio, p.fecha_fin_planificada
-ORDER BY p.fecha_fin_planificada NULLS LAST, p.nombre
+ORDER BY p.fecha_fin_planificada ,p.nombre
 """)
 
+
 RISKS_SQL = text("""
-SELECT
+SELECT TOP 500
     p.nombre AS proyecto,
     t.id AS tarea_id,
     t.nombre AS tarea,
@@ -46,21 +48,21 @@ SELECT
     t.fecha_limite,
     t.fecha_actualizacion,
     CASE WHEN t.estado NOT IN ('completada', 'cancelada')
-              AND t.fecha_limite < CURRENT_DATE THEN 1 ELSE 0 END AS atrasadas,
+              AND t.fecha_limite < cast(GETDATE() as date) THEN 1 ELSE 0 END AS atrasadas,
     CASE WHEN t.estado NOT IN ('completada', 'cancelada')
               AND (t.fecha_actualizacion IS NULL
-                   OR t.fecha_actualizacion < CURRENT_DATE - (:stale_days * INTERVAL '1 day'))
+				   OR cast(t.fecha_actualizacion as date) < (DATEADD(DAY, - :stale_days, CAST(GETDATE() AS DATE)))
+				   )
          THEN 1 ELSE 0 END AS desactualizadas
 FROM tareas t
 JOIN proyectos p ON p.id = t.proyecto_id
 WHERE LOWER(COALESCE(t.estado, '')) NOT IN ('completada', 'completado', 'cancelada', 'cancelado')
   AND (
-      t.fecha_limite < CURRENT_DATE
+      t.fecha_limite < cast(GETDATE() as date)
       OR t.fecha_actualizacion IS NULL
-      OR t.fecha_actualizacion < CURRENT_DATE - (:stale_days * INTERVAL '1 day')
+      OR t.fecha_actualizacion <  DATEADD(DAY, - :stale_days, CAST(GETDATE() AS DATE))
   )
-ORDER BY atrasadas DESC, desactualizadas DESC, t.fecha_limite NULLS LAST
-LIMIT 500
+ORDER BY atrasadas DESC, desactualizadas DESC, t.fecha_limite
 """)
 
 def get_project_overview(engine: Engine) -> pd.DataFrame:
@@ -73,14 +75,24 @@ def analyze_risks(engine: Engine) -> pd.DataFrame:
 
 def list_projects(engine: Engine, limit: int = 100) -> list[dict]:
     limit = max(1, min(int(limit), 100))
-    query = text("""
-        SELECT id, nombre, estado, fecha_inicio, fecha_fin_planificada
+
+    query = text(f"""
+        SELECT TOP {limit}
+            id,
+            nombre,
+            estado,
+            fecha_inicio,
+            fecha_fin_planificada
         FROM proyectos
-        ORDER BY fecha_fin_planificada NULLS LAST, nombre
-        LIMIT :limit
+        ORDER BY
+            CASE WHEN fecha_fin_planificada IS NULL THEN 1 ELSE 0 END,
+            fecha_fin_planificada,
+            nombre
     """)
+
     with engine.connect() as conn:
-        rows = conn.execute(query, {"limit": limit}).mappings().all()
+        rows = conn.execute(query).mappings().all()
+
     return [dict(row) for row in rows]
 
 def get_risk_summary(engine: Engine) -> dict:
