@@ -76,3 +76,4 @@ def test_connection(engine: Engine) -> dict:
         ).mappings().one()
 
         return dict(result)
+        
